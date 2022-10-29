@@ -1,0 +1,283 @@
+---
+title: "Final"
+author: "Sinha"
+date: '2022-05-15'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+require(dplyr)
+require(ggplot2)
+require(lubridate)
+require(tibble)
+require(reshape2)
+require(scales)
+```
+
+
+The variables that would be used in the project are:
+● Date in MM-DD-YYYY
+● Day of the Week
+● Quarter : A portion of the month. A month was divided into four quarters
+● Department : Associated department with the instance
+● Number of workers : Number of workers in each team
+● Number of Style Change : Number of changes in the style of a particular product
+● Targeted Productivity : Targeted productivity set by the Authority for each team for each
+day.
+● SMV : Standard Minute Value, it is the allocated time for a task
+● WIP : Work in progress. Includes the number of unfinished items for products
+● Overtime : Represents the amount of overtime by each team in minutes
+● Incentive : Represents the amount of financial incentive (in BDT) that enables or
+motivates a particular course of action.
+● Idle time : The amount of time when the production was interrupted due to several
+reasons
+● Idlemen : The number of workers who were idle due to production interruption
+● Actual productivity : The actual % of productivity that was delivered by the workers. It
+ranges from 0-1.
+
+
+```{r}
+garmentpro <- read.csv("C:/Users/sinha/Downloads/garments_worker_productivity - garments_worker_productivity (2).csv")
+
+
+garmentpro$date <- mdy(garmentpro$date)
+
+garmentpro <- mutate(garmentpro, difference = actual_productivity - targeted_productivity)
+garmentpro[is.na(garmentpro)] = 0
+garmentpro$idle_time <- as.integer(garmentpro$idle_time)
+
+garmentpro$department <- gsub("sweing", "sewing", garmentpro$department)
+
+head(garmentpro)
+
+```
+```{r}
+str(garmentpro)
+```
+
+# Calculating mean targeted and actual productivity for each day of each department and visualizing the data with line graphs.
+
+```{r}
+gar <- data.frame(garmentpro %>%
+                    group_by(date) %>%
+                    filter(department == "sewing") %>%
+                    summarise(mean_tar = mean(targeted_productivity), mean_act = mean(actual_productivity)))
+gar1 <- data.frame(garmentpro %>%
+                    group_by(date) %>%
+                    filter(department == "finishing") %>%
+                    summarise(mean_tar = mean(targeted_productivity), mean_act = mean(actual_productivity)))
+
+head(gar)
+head(gar1)
+```
+
+```{r}
+colors <- c("Mean Targeted Productivity" = "blue", "Mean Actual Productivity" = "darkred")
+
+ggplot(gar, aes(x=date)) + 
+  geom_line(aes(y = mean_tar, color = "Mean Targeted Productivity"), group = 1, lwd = 0.75) + 
+  geom_line(aes(y = mean_act, color="Mean Actual Productivity"), group = 1, lwd = 0.75) +
+  labs(x = "Date", y = "Mean productivity")+
+  scale_color_manual(values = colors) +
+  ggtitle("Sewing Department")
+
+ggplot(gar1, aes(x=date)) + 
+  geom_line(aes(y = mean_tar, color = "Mean Targeted Productivity"), group = 1, lwd = 0.75) + 
+  geom_line(aes(y = mean_act, color="Mean Actual Productivity"), group = 1, lwd = 0.75) +
+  labs(x = "Date", y = "Mean productivity")+
+  scale_color_manual(values = colors)+
+  ggtitle("Finishing Department")
+```
+
+
+
+```{r}
+sewing <- data.frame(garmentpro %>%
+                       
+                       filter(department == "sewing"))
+
+finishing <- data.frame(garmentpro %>%
+                          filter(department == "finishing"))
+
+
+
+```
+
+```{r}
+ggplot(garmentpro, aes(x=idle_men, fill=department))+
+  geom_bar() + facet_grid(.~department) + xlab("Idle Time")
+
+ggplot(garmentpro, aes(x=idle_time, fill=department))+
+  geom_bar(width = 5) + facet_grid(.~department) + xlab("Idle Time")
+```
+
+The graphs above shows that the variables 'idle-men' and 'idle_time' consists '0' as their values so these two variables would not be used in Multiple Linear Regression.
+
+# Multiple Linear Regression for Sewing
+
+```{r}
+fit = lm(difference ~ quarter + day + smv + wip + over_time + incentive + no_of_style_change + no_of_workers, data = sewing)
+
+summary(fit)
+```
+Eliminating quarter
+
+```{r}
+fit = lm(difference ~ day+smv + wip + over_time + incentive + no_of_style_change + no_of_workers, data = sewing)
+
+summary(fit)
+```
+Eliminating wip 
+```{r}
+fit = lm(difference ~ day++ smv + over_time + incentive + no_of_style_change + no_of_workers, data = sewing)
+
+summary(fit)
+```
+Eliminating over_time
+
+```{r}
+fit = lm(difference ~ day++ smv + incentive + no_of_style_change + no_of_workers, data = sewing)
+
+summary(fit)
+```
+Eliminating day
+
+```{r}
+fit = lm(difference ~ smv + incentive + no_of_style_change + no_of_workers, data = sewing)
+
+summary(fit)
+```
+Eliminating no_of_style_change
+```{r}
+fit = lm(difference ~ smv + incentive + no_of_workers, data = sewing)
+
+summary(fit)
+```
+
+The variables left are Standard Minute value (smv), Incentive and No_of_workers. There are variables that have significant effect on the variation of response variable 'difference'.
+
+# Multiple Linear Regression for finishing
+
+```{r}
+fit = lm(difference ~ quarter + day + smv + wip + over_time + incentive + no_of_style_change + no_of_workers, data = finishing)
+
+summary(fit)
+```
+Eliminating wip and no_of_style_change
+```{r}
+fit = lm(difference ~ quarter + day + smv + over_time + incentive + no_of_workers, data = finishing)
+
+summary(fit)
+```
+Eliminating day
+```{r}
+fit = lm(difference ~ quarter + smv + over_time + incentive + no_of_workers, data = finishing)
+
+summary(fit)
+```
+Eliminating incentive
+```{r}
+fit = lm(difference ~ quarter + smv + over_time + no_of_workers, data = finishing)
+
+summary(fit)
+```
+Eliminating quarter
+```{r}
+fit = lm(difference ~ smv + over_time + no_of_workers, data = finishing)
+
+summary(fit)
+```
+
+The variables left are Standard Minute value (smv), Overtime and No_of_workers. There are variables that have significant effect on the variation of response variable 'difference'.
+
+# Finding correlation between these significant variables that would be used to provide useful information about the forthcoming graphs in this file.
+
+```{r}
+cor(garmentpro[garmentpro$department == "sewing", c("no_of_workers", "difference","smv","incentive")])
+cor(garmentpro[garmentpro$department == "finishing", c("no_of_workers", "difference","smv","over_time")])
+```
+
+# Visualizing relationship between Number of Workers and Difference in Productivity 
+
+```{r}
+
+ggplot(garmentpro,aes(x=no_of_workers, 
+             y=difference, 
+             color=department))+
+  geom_point()+
+  geom_smooth(formula = y ~ x, method = "lm")+ ggtitle("Number of Workers vs. Difference in Productivity", subtitle = "Sewing: r = 0.0774, Finishing: r = 0.263") + xlab("Number of Workers") + ylab("Difference in productivity")
+
+
+xdensity <- ggplot(garmentpro, aes(x= no_of_workers, fill=department)) + 
+  geom_density(alpha=.5) + 
+  scale_fill_manual(values = c('red','lightblue')) + 
+  theme(legend.position = "none")+ ggtitle("Number of Workers vs. Difference in Productivity") + xlab("Number of Workers") + ylab("Density of distribution of x values")
+
+
+xdensity
+
+```
+
+The x density curve above show that Finishing department has less number of workers in each team in comparison to that of sewing department.
+
+# Visualizing relationship between Standard Minute Value(smv) and Difference in Productivity 
+
+```{r}
+ggplot(garmentpro,aes(x=smv, 
+             y=difference, 
+             color=department))+
+  geom_point()+
+  geom_smooth(formula = y ~ x, method = "lm") + ggtitle("Standard Minute value vs. Difference in Productivity", subtitle = "Sewing: r = -0.194, Finishing: r = 0.215") + xlab("Standard Minute Value (smv)") + ylab("Difference in productivity")
+
+
+xdensity <- ggplot(garmentpro, aes(x= smv, fill=department)) + 
+  geom_density(alpha=.5) + 
+  scale_fill_manual(values = c('red','lightblue')) + 
+  theme(legend.position = "none") + ggtitle("Standard Minute value vs. Difference in Productivity") + xlab("Standard Minute Value (smv)") + ylab("Density of distribution of x values")
+
+
+xdensity
+```
+
+The x density curve above show that Finishing department has less allocated time for a task in comparison to that of sewing department.
+
+# Visualizing the other relationships:
+
+```{r}
+ggplot(sewing,aes(x=incentive, 
+             y=difference))+
+  geom_point(color = "darkred")+
+  geom_smooth(formula = y ~ x, method = "lm") + ggtitle("SEWING: Financial Incentive vs. Difference in Productivity, r = 0.674") + xlab("Financial Incentive") + ylab("Difference in productivity")
+
+ggplot(finishing,aes(x=over_time, 
+             y=difference))+
+  geom_point(color="steelblue")+
+  geom_smooth(formula = y ~ x, method = "lm") + ggtitle("FINISHING: Overtime vs. Difference in Productivity, r = 0.046") + xlab("Overtime") + ylab("Difference in productivity")
+
+
+```
+
+Results:
+
+Multiple significant relationships were found between difference in productivity and Sewing department: (p<0.001, F= 218.8 on 3 and 687 DF, Adjusted R-squared:  0.4864 ), Finishing department: (p<0.001, F=22.94 on 3 and 502 DF,  Adjusted R-squared:  0.1153 )
+
+The predicted linear models:
+
+Sewing:
+
+Difference = {- 74.4  - 3.61(smv) + 2.5(incentive) + 1.85(no_of_workers)} 10^(-3)
+
+Finishing:
+
+Difference = {- 34360 + 6083(smv) - 2.363(over_time) + 1841(no_of_workers)} 10^(-5)
+
+Explanation:
+
+For sewing department, the financial ‘incentive’, the allocated work time ‘smv’ and the number of workers all have statistically significant effect on the difference between productivities. Roughly 49% of the variability in difference is accounted for by a multiple linear model with these four variables (R2 Adj = 0.4973).
+
+For finishing department, the ‘overtime’ worked by employees, the
+allocated work time ‘smv’ and the number of workers statistically significant effect on the difference between productivities. Roughly 11.5% of the variability in difference is accounted for by a multiple linear model with these three variables (R2 Adj = 0.1153).
